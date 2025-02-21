@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+    <title></title>
+    <link rel="stylesheet" href="dist/reveal.css" />
+    <link rel="stylesheet" href="dist/theme/serif.css" id="theme" />
+    <link rel="stylesheet" href="plugin/highlight/zenburn.css" />
+	<link rel="stylesheet" href="css/layout.css" />
+	<link rel="stylesheet" href="plugin/customcontrols/style.css">
+	<link rel="stylesheet" href="plugin/chalkboard/style.css">
+
+
+
+    <script defer src="dist/fontawesome/all.min.js"></script>
+
+	<script type="text/javascript">
+		var forgetPop = true;
+		function onPopState(event) {
+			if(forgetPop){
+				forgetPop = false;
+			} else {
+				parent.postMessage(event.target.location.href, "app://obsidian.md");
+			}
+        }
+		window.onpopstate = onPopState;
+		window.onmessage = event => {
+			if(event.data == "reload"){
+				window.document.location.reload();
+			}
+			forgetPop = true;
+		}
+
+		function fitElements(){
+			const itemsToFit = document.getElementsByClassName('fitText');
+			for (const item in itemsToFit) {
+				if (Object.hasOwnProperty.call(itemsToFit, item)) {
+					var element = itemsToFit[item];
+					fitElement(element,1, 1000);
+					element.classList.remove('fitText');
+				}
+			}
+		}
+
+		function fitElement(element, start, end){
+
+			let size = (end + start) / 2;
+			element.style.fontSize = `${size}px`;
+
+			if(Math.abs(start - end) < 1){
+				while(element.scrollHeight > element.offsetHeight){
+					size--;
+					element.style.fontSize = `${size}px`;
+				}
+				return;
+			}
+
+			if(element.scrollHeight > element.offsetHeight){
+				fitElement(element, start, size);
+			} else {
+				fitElement(element, size, end);
+			}		
+		}
+
+
+		document.onreadystatechange = () => {
+			fitElements();
+			if (document.readyState === 'complete') {
+				if (window.location.href.indexOf("?export") != -1){
+					parent.postMessage(event.target.location.href, "app://obsidian.md");
+				}
+				if (window.location.href.indexOf("print-pdf") != -1){
+					let stateCheck = setInterval(() => {
+						clearInterval(stateCheck);
+						window.print();
+					}, 250);
+				}
+			}
+	};
+
+
+        </script>
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides"><section  data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+## Analyse des systèmes éducatifs
+
+### Modéliser et simuler un système éducatif
+#### Partie 2 - Les principes de la simulation multi-agents
+
+Nathanaël Friant
+
+2024-2025
+</div></script></section><section  data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Source de cette présentation
+
+<img src="https://www.intro-to-abm.com/images/iabm-cover.jpg" alt="" style="object-fit: scale-down">
+</div></script></section><section ><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Pourquoi des modèles multi-agents?
+
+- Plus faciles à comprendre que des représentations mathématiques
+- Caractère "démocratisant" de savoirs parfois difficiles à acquérir avec d'autres outils
+
+>"We shape our tools and then our tools shape us."  —Marshall McLuhan
+
+<aside class="notes"><p>« An agent is an autonomous computational individual or object with particular properties and actions. Agent-based modeling is a form of computational modeling whereby a phenomenon is modeled in terms of agents and their interactions. » (Wilensky et Rand, 2015, p. 1)</p>
+</div></aside></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Pourquoi des modèles multi-agents? (2)
+
+<img src="Capture d’écran 2025-02-19 à 11.54.06.png" alt="" style="width: 600px; object-fit: fill">
+
+
+<aside class="notes"><p>Six théorèmes de Galilée tels qu&#39;écrits à son époque. L&#39;exemple provient du livre de diSessa &quot;Changing Minds&quot; (2001).</p>
+<p>C&#39;est sacrément compliqué à comprendre. Et pourtant...</p>
+</div></aside></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Pourquoi des modèles multi-agents? (3)
+
+distance = vitesse X temps
+
+<aside class="notes"><p>Pourquoi Galilée a-t-il utilisé une façon aussi compliquée que celle-là pour expliquer son théorème? Tout simplement parce qu&#39;il n&#39;avait pas de représentation algébrique: cela n&#39;avait pas encore été inventé à ce moment-là. Il a dû utiliser sa langue, l&#39;italien, pour tout expliquer. Et un langage naturel n&#39;est pas aussi bien adapté que l&#39;algèbre pour faire cela. </p>
+<p>Des idées qui étaient inaccessibles à beaucoup, grâce à la représentation algébrique, deviennent accessibles à toute personne ayant eu un cours de mathématique à l&#39;école secondaire. </p>
+<p>D&#39;après Wilensky et Rand, les systèmes multi-agents opèrent le même type de révolution pour la compréhension des systèmes complexes et de l&#39;émergence.</p>
+</div></aside></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Pourquoi des modèles multi-agents? (4)
+
+- Pour comprendre le phénomène d'émergence
+	- Comment, connaissant les "comportements" d'éléments individuels, quelque-chose émerge au niveau agrégé (tel que la ségrégation)
+	- Comment, connaissant le résultat agrégé, en déduire les comportements des éléments individuels? 
+
+Notes:
+Anecdote pour les matheux: Wilensky et Rand appellent le premier point "integrative understanding" (ils font le parallèle avec le calcul intégral en mathématiques). Ils appellent le second point "diffential understanding" (ils font le parallèle avec le calcul des dérivées en mathématiques).
+</div></script></section></section><section ><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Comprendre le phénomène d'émergence
+
+  <iframe src="https://netlogoweb.org/launch#https://netlogoweb.org/assets/modelslib/IABM%20Textbook/chapter%200/Turtles%20Circling%20Simple.nlogo?embedded=true" width="1000" height="1000" frameborder="0" scrolling="yes" allowfullscreen ></iframe>
+
+
+
+Notes:
+- Comment, connaissant les "comportements" d'éléments individuels, quelque-chose émerge au niveau agrégé (tel que la ségrégation)
+
+"The SETUP button creates 40 turtles on a circle of radius 20 centered at the point (0 0). The turtles are all facing around the circle.
+
+The GO button starts the turtles circling. They move around the circle.
+
+The CHANGE-SPEED button increase the turtles' step size to .5 units. _Before_ you do it, what is your guess as to what will happen when you change the step-size?
+
+The TRACK-TURTLE button selects one turtle at random to draw its path, so you can keep better track of its movement."
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Comprendre le phénomène d'émergence (2)
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/uV54oa0SyMc?si=NA2NWgG45kGUswV4" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+Notes:
+
+« Now let’s consider the flip side of these difficulties. There are many coherent, powerful, and beautiful patterns we observe in the world. What accounts for their prevalence? How do they originate? The secret to understanding the formation of these patterns is to understand that they are emergent, arising from the interactions of distributed individual elements. One such prevalent (and often beautiful) pattern is the flocking of birds. Birds fly together in many different formations, from the classic V formation of goose flocks to the large, very dense flocks of starlings that resemble insect swarms. How and why do these flock emerge?  » (Wilensky et Rand, 2015, p. 8)
+
+« (...) a phenomenon, or cognitive pattern, called the deterministic-centralized mindset, or DC mindset. The pattern stemmed from two main empirical findings: (1) Most subjects did not see any role for randomness in creating these structures, randomness was seen as destructive of pattern, not a force for creating pattern (the D component); and (2) Most subjects described these patterns as arising from the actions of a centralized controller or orchestrator (the C component). » (Wilensky et Rand, 2015, p. 10)
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Comprendre les phénomènes d'émergence (3)
+
+  <iframe src="https://netlogoweb.org/launch#https://netlogoweb.org/assets/modelslib/Sample%20Models/Biology/Flocking.nlogo" width="1000" height="1000" frameborder="0" scrolling="yes" allowfullscreen ></iframe>
+  
+Notes:
+#### THINGS TO NOTICE
+
+Central to the model is the observation that flocks form without a leader.
+
+There are no random numbers used in this model, except to position the birds initially. The fluid, lifelike behavior of the birds is produced entirely by deterministic rules.
+
+Also, notice that each flock is dynamic. A flock, once together, is not guaranteed to keep all of its members. Why do you think this is?
+
+### Définition de l'émergence par Wilensky & Rand
+
+« Emergence is a property classically exhibited by many agent-based models, and it occurs when an attribute that can be described at a system level is not specifically encoded at the individual level. This can lead to surprises when behaviors encoded at an individual level result in unexpected behavior of the system at a macro level. Indeed, when most people encounter an emergent phenomenon, they tend not to see the emergence, and they usually explain the phenomenon as the result of deterministic, centralized control. Complex systems are characterized by emergent phenomena—patterns that appear to be quite complex can often be generated by simple rules. When exploring agent-based models, you may be surprised at the simplicity of the agent rules; a key to building agent-based models is to harness emergence by finding the simple rules that can generate the phenomenon. » (Wilensky et Rand, 2015, p. 29)
+</div></script></section></section><section ><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Des équations différentielles aux modèles multi-agents
+
+- Les feux de forêt : deux approches mathématiques classiques
+  - L'équation de la chaleur :
+    `$\frac{dH(x,t)}{dt} = \theta\frac{d^2H(x,t)}{dx^2}$`
+  - L'équation de Reynolds (le feu comme fluide turbulent) :
+    `$\frac{dU_i}{dt} + U_j\frac{dU_i}{dx_j} = -\frac{1}{\rho}\frac{dP}{dx_i} + \nu\frac{d^2U_i}{dx_jdx_j} - \frac{d}{dx_j}\overline{u'_iu'_j}$`
+
+Notes:
+Le "ticket d'entrée" pour comprendre ces équations est particulièrement cher. C'est loin d'être à la portée de tout le monde (et certainement pas à la mienne)
+
+Ces équations sont élégantes mais :
+- complexes à comprendre sans formation mathématique poussée
+- difficiles à adapter aux terrains hétérogènes
+- ne capturent pas facilement les facteurs locaux (vent, humidité...)
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### L'approche multi-agents pour les feux de forêt
+
+  <iframe src="https://netlogoweb.org/launch#https://netlogoweb.org/assets/modelslib/IABM%20Textbook/chapter%203/Fire%20Extensions/Fire%20Simple.nlogo" width="1000" height="1000" frameborder="0" scrolling="yes" allowfullscreen ></iframe>
+
+Notes:
+
+Des règles locales simples et intuitives :
+  - Le feu se propage d'arbre en arbre
+  - Influence du vent et de l'humidité
+  - Variation du terrain et de la végétation
+
+- La complexité émerge naturellement :
+  - Motifs de propagation réalistes
+  - Prise en compte des obstacles
+  - Adaptation aux conditions locales
+
+L'approche multi-agents permet de :
+- simuler des scénarios réalistes
+- tester différentes stratégies d'intervention
+- communiquer plus facilement avec les non-spécialistes
+
+<aside class="notes"><h3 id="définition-des-systèmes-complexes-par-wilensky--rand">Définition des systèmes complexes par Wilensky &amp; Rand</h3>
+<p>« The study of complex systems has become an important scientific frontier. By the term complex system we mean a system composed of many distributed interacting parts. The field of complex systems or complexity science arose in the mid-1980s and was born out of a variety of disparate fields from economics to physics to ecology. Complex systems science provides a set of tools and frameworks for viewing phenomena. Any phenomenon can be viewed as a complex system, and choosing when to do so depends on assessing when it is most useful to use the lens and/or methodologies of complex systems. One important methodology of complexity science is agent-based modeling. The history of agent-based modeling and complex systems is explored in greater depth in subsequent chapters, and its roots in computer science are described in the appendix. » (Wilensky et Rand, 2015, p. 23)</p>
+</div></aside></script></section></section><section  data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Du texte au modèle : l'exemple des fourmis
+
+- Une narration simple : la fourmi cherche de la nourriture
+- Mais cette description est limitée :
+  - Non manipulable 
+  - Non généralisable
+  - Ne permet pas de comprendre les mécanismes collectifs
+
+Notes: 
+
+« The ant opens her eyes and looks around. There are many of her siblings nearby, but there is no food. The ant is hungry, so she heads out from the ant colony and starts to wander around. She sniffs a little to the left and a little to the right, and still she cannot smell any food. So she keeps wandering. She passes by several of her sisters, but they do not interest her right now; she has food on her mind. She keeps wandering. Sniff! Sniff! Mmmm ... good! She gets a whiff of some of that delightful pheromone stuff. She heads in the direction of the strongest pheromone scent; in the past there has been food at the end of that trail. Sure enough, as the ant proceeds along the trail, she arrives at some delicious food. She grabs some food and heads back to the colony, making sure to drop some pheromone along the way. On the way back, she runs into many of her sisters, each sniffing her way along pheromone trails, repeating the same process they will carry out all day. » (Wilensky et Rand, 2015, p. 21)
+
+Cet exemple montre pourquoi nous avons besoin de passer à une modélisation plus formelle.
+</div></script></section><section  data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Du texte au modèle  computationnel
+
+- **Besoin de manipuler le modèle** :
+	 - Tester différentes conditions initiales
+	 - Observer avec de grands nombres d'agents
+	 - Comparer différentes hypothèses
+
+- **L'implémentation computationnelle** :
+	 - Transformation d'un modèle conceptuel en simulation
+	 - Algorithmes qui prennent des inputs et génèrent des outputs
+	 - Possibilité de répéter les expériences
+
+Notes:
+Le modèle computationnel permet de dépasser les limites du modèle textuel en rendant possible la manipulation et l'expérimentation.
+</div></script></section><section ><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Les agents
+
+
+ - Éléments autonomes de simulation
+ - Propriétés (apparence, vitesse...)
+ - Comportements (se déplacer, chercher...)
+ - États (avec/sans nourriture, perception des phéromones...)
+
+Notes:
+L'agent devient l'unité de base de la modélisation, permettant une description naturelle des comportements individuels.
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Modélisation orientée agent (ABM)
+ - Encodage de règles simples individuelles
+ - Observation des interactions
+ - Particulièrement adaptée aux systèmes complexes
+
+Notes:
+L'agent devient l'unité de base de la modélisation, permettant une description naturelle des comportements individuels.
+</div></script></section></section><section  data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Les règles du modèle "foraging ants"
+
+Les fourmis suivent 3 règles simples :
+1. Si pas de nourriture : chercher des phéromones et les suivre
+2. Si nourriture trouvée : retourner au nid en déposant des phéromones
+3. Se déplacer aléatoirement avec un petit angle à chaque pas
+
+Notes:
+Ces règles simples suffisent à générer un comportement collectif complexe.
+</div></script></section><section  data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Le modèle "Foraging Ants"
+
+<iframe src="https://netlogoweb.org/launch#https://netlogoweb.org/assets/modelslib/Sample%20Models/Biology/Ants.nlogo" width="1000" height="1000" frameborder="0" scrolling="yes" allowfullscreen ></iframe>
+</div></script></section><section  data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### L'émergence : le cœur de la simulation multi-agents
+
+- Pas de contrôle central
+- Pas de "chef d'orchestre"
+- Des patterns complexes émergent :
+  - Formation de chemins optimaux
+  - Exploitation efficace des ressources
+  - Balance exploration/exploitation
+
+Notes:
+L'émergence est le concept clé qui différencie cette approche des approches classiques.
+
+
+« Results and Observations from the Ant Model When running the Ants model, the results are initially surprising for someone who has only seen the rules for the individual ants. The “aggregate” or “macro” behavior of the model shows apparently systematic food gathering behavior. It is as if the ant colony has a clear plan for how to gather the food. Yet, we have seen that the Ants model rules do not contain any systematic foraging plan. If we look closely at the model running, we observe that initially the ants wander around at random. Then some ants will wander into a nearby food source. Once they find that food source, they will start to bring food back to the nest, laying a pheromone trail beneath them. If just one lone ant finds the food source, the pheromone trail will not be strong enough for other ants to follow it; but as more and more ants find the food source, the trail will become stronger and stronger. Eventually, the actions of many ants will create a strong pheromone trail from the nest to the food source, and so any ant can easily find the trail to the food source. The ants as a group appear to exploit food sources in an optimal manner. That is, they first gather food from the nearest food source, then the second nearest, and so on. This appears to be a conscious plan of the ant colony; but as we know from the ant rules, this is not the case. » (Wilensky et Rand, 2015, p. 27)
+</div></script></section><section ><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### 8 utilisations principales des modèles multi-agents
+
+1. description
+2. explanation
+3. experimentation
+4. providing sources of analogy
+5. communication/education
+6. providing focal objects or centerpieces for scientific dialogue
+7. as thought experiments
+8. prediction.
+(Wilensky & Rand, 2015, p.28)
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### 1. Description
+- Les ABM décrivent les systèmes réels de façon simplifiée
+- Permettent de se concentrer sur l'essentiel
+- Même sans avoir observé le système réel, aident à générer des hypothèses testables
+- Exemple fourmis : décrit les mécanismes essentiels de recherche de nourriture
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### 2. Explication
+- Identifient les mécanismes essentiels d'un phénomène
+- Prouvent qu'une hypothèse peut expliquer une observation
+- "Preuve de concept" qu'un mécanisme est possible
+- Exemple fourmis : montre qu'un comportement optimal peut émerger sans contrôle central
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### 3. Expérimentation
+- Tests répétés pour observer les variations
+- Modification des paramètres pour tester leur influence
+- Comparaison entre différentes exécutions 
+- Exemple fourmis : tester l'impact du taux d'évaporation des phéromones
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### 4. Source d'analogies
+- Pont entre différents domaines de connaissance
+- Transfert de compréhension entre systèmes similaires
+- Application à des problèmes nouveaux
+- Exemple : algorithmes de routage réseau inspirés des colonies de fourmis
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### 5. Communication/Éducation
+- Outil pédagogique pour expliquer des phénomènes complexes
+- Support d'expérimentation pour les apprenants
+- Test d'hypothèses par les étudiants
+- Exemple : comprendre l'émergence à travers des simulations interactives
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### 6. Objet focal pour le dialogue scientifique
+- Point de référence commun pour les discussions
+- Modèle transparent : on peut observer tous les mécanismes internes
+- Support pour tester et comparer différentes hypothèses
+- Exemple : débattre des mécanismes de formation des chemins de phéromones
+
+Notes: 
+Contrairement à une "boîte noire" où seuls les inputs et outputs sont visibles, le modèle multi-agents permet d'observer et de discuter chaque étape du processus.
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### 7. Expériences de pensée
+- Exploration de situations hypothétiques
+- Test de scénarios impossibles dans le réel
+- Création de nouveaux phénomènes
+- Exemple : automates cellulaires, fractales
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### 8. Prédiction
+- Exploration de scénarios futurs possibles
+- Limites : dépend de la précision des données d'entrée
+- Plus utile pour comprendre les mécanismes que pour prédire
+- Exemple : décrire des patterns plutôt que prédire des résultats exacts
+</div></script></section></section><section  data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Heroes and Cowards : un modèle d'interactions sociales
+
+- Modèle simple mais puissant
+- Chaque agent a un ami et un ennemi
+- Deux types de comportements possibles :
+  - Héros : se place entre son ami et son ennemi
+  - Lâche : se cache derrière son ami pour éviter son ennemi
+
+<aside class="notes"><p>Ce modèle très simple permet de comprendre comment des structures sociales complexes peuvent émerger d&#39;interactions individuelles basiques.</p>
+</div></aside></script></section><section  data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Visualisation du modèle
+
+<iframe src="https://netlogoweb.org/launch#https://netlogoweb.org/assets/modelslib/IABM%20Textbook/chapter%202/Heroes%20and%20Cowards.nlogo" width="1000" height="600" frameborder="0" scrolling="no" allowfullscreen></iframe>
+
+<aside class="notes"><p>Observez comment les agents s&#39;organisent spontanément en différentes configurations selon leurs comportements.</p>
+</div></aside></script></section><section  data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Des comportements émergents surprenants
+
+Quatre configurations typiques peuvent émerger :
+- "Frozen" : agents figés dans l'espace
+- "Slinky" : formation d'une ligne qui se déplace
+- "Dot" : regroupement en un point
+- "Spiral" : formation d'une spirale rotative
+
+<aside class="notes"><p>Aucune de ces configurations n&#39;est programmée explicitement - elles émergent des interactions entre agents.</p>
+<p>« A more complex behavior emerges when we set the personalities chooser to “mixed.” Can you predict what will happen? Most people are unable to predict the behavior of the “mixed” model. In mixed mode, the model exhibits a variety of different possible behaviors. Since the behavior of the agents is deterministic, the model’s behavior is completely determined by the initial setup. As we will describe, this initial setup contains enough randomness to generate several different interesting behaviors. To examine this, we developed a special version of the model in which the buttons below the SETUP and the GO button of the interface encode two initial setups that exhibit interesting behavior. Each button sets NetLogo’s random number generator to a particular “seed” state. The random numbers spewed out by the generator determine the “random” locations of the initial agents. They also determine which agents are heroes and which cowards as well as which friends and enemies they choose. Each press of these two setup buttons will generate the same exact initial setup and hence the same model behavior from then on. You will notice that the model exhibits a variety of qualitatively different “final behaviors.” Once reached these final behaviors, similar to “attractor states” in dynamical systems theory, stay qualitatively stable.12 We will illustrate four such final behaviors for this model. In the associated model file (Heroes and Cowards.nlogo), we have setup buttons for two of these final states, “frozen” and “slinky.” There are many possible states, and we leave it as an exercise to the reader to find other interesting final states. » (Wilensky et Rand, 2015, p. 76)</p>
+</div></aside></script></section><section ><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Décrire un modèle multi-agents sans coder
+
+- Une façon simple et naturelle de décrire le comportement d'un système
+- Deux sections essentielles :
+  - L'initialisation : comment le système démarre
+  - Le comportement : ce qui se passe à chaque pas de temps
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### L'initialisation du modèle
+
+Description de l'état initial :
+- Combien d'agents ? 
+- Où sont-ils placés ?
+- Quelles sont leurs caractéristiques ?
+- Qui sont leurs relations avec les autres ?
+
+<aside class="notes"><p>Dans l&#39;exemple, on crée un certain nombre d&#39;agents, on les place aléatoirement, on définit leur personnalité et leurs relations amicales/antagonistes.</p>
+</div></aside></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### L'initialisation du modèle (2)
+
+	Initialisation:
+	   Créer NOMBRE agents, où NOMBRE est défini par un curseur dans l'interface
+	   Chaque agent se déplace vers un endroit aléatoire de l'écran
+	   Si le curseur PERSONNALITES est réglé sur "courageux", chaque agent devient bleu
+	   Si le curseur PERSONNALITES est réglé sur "lâche", chaque agent devient rouge 
+	   Si le curseur PERSONNALITES est réglé sur "mixte", chaque agent "lance une pièce" 
+	       et selon le résultat, devient rouge ou bleu
+	   Chaque agent choisit un autre agent comme ami
+	   Chaque agent choisit un autre agent comme ennemi
+	   L'horloge de simulation est démarrée
+
+(Wilensky et Rand, 2015, p. 79)
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Le comportement des agents
+
+À chaque pas de temps, chaque agent :
+- Évalue sa situation
+- Prend une décision
+- Agit en conséquence
+
+<aside class="notes"><p>Dans l&#39;exemple, l&#39;agent vérifie sa couleur (sa personnalité) et se déplace en fonction de la position de son ami et de son ennemi.</p>
+</div></aside></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Le comportement des agents (2)
+
+	À chaque pas de temps:
+	   Chaque agent se demande "Suis-je bleu ?" 
+	       Si oui, alors j'agis courageusement en me déplaçant d'un pas 
+	       vers un endroit situé entre mon ami et mon ennemi
+	   Chaque agent se demande "Suis-je rouge ?" 
+	       Si oui, alors j'agis lâchement en me déplaçant d'un pas 
+	       vers un endroit qui place mon ami entre mon ennemi et moi
+</div></script></section><section data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Points clés pour une bonne description
+
+- Se placer du point de vue de l'agent
+- Décrire des règles simples et claires
+- Être explicite sur les conditions et les actions
+- Penser aux différents cas possibles
+</div></script></section></section><section  data-markdown><script type="text/template"><!-- .slide: class="drop" -->
+<div class="" style="position: absolute; left: 0px; top: 0px; height: 700px; width: 960px; min-height: 700px; display: flex; flex-direction: column; align-items: center; justify-content: center" absolute="true">
+
+### Références
+
+Wilensky, U., & Rand, W. (2015). _An introduction to agent-based modeling : Modeling natural, social, and engineered complex systems with NetLogo_. The MIT press.
+
+Site web lié au livre: https://www.intro-to-abm.com
+</div></script></section></div>
+    </div>
+
+    <script src="dist/reveal.js"></script>
+
+    <script src="plugin/markdown/markdown.js"></script>
+    <script src="plugin/highlight/highlight.js"></script>
+    <script src="plugin/zoom/zoom.js"></script>
+    <script src="plugin/notes/notes.js"></script>
+    <script src="plugin/math/math.js"></script>
+	<script src="plugin/mermaid/mermaid.js"></script>
+	<script src="plugin/chart/chart.min.js"></script>
+	<script src="plugin/chart/plugin.js"></script>
+	<script src="plugin/menu/menu.js"></script>
+	<script src="plugin/customcontrols/plugin.js"></script>
+	<script src="plugin/chalkboard/plugin.js"></script>
+
+    <script>
+      function extend() {
+        var target = {};
+        for (var i = 0; i < arguments.length; i++) {
+          var source = arguments[i];
+          for (var key in source) {
+            if (source.hasOwnProperty(key)) {
+              target[key] = source[key];
+            }
+          }
+        }
+        return target;
+      }
+
+	  function isLight(color) {
+		let hex = color.replace('#', '');
+
+		// convert #fff => #ffffff
+		if(hex.length == 3){
+			hex = `${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`;
+		}
+
+		const c_r = parseInt(hex.substr(0, 2), 16);
+		const c_g = parseInt(hex.substr(2, 2), 16);
+		const c_b = parseInt(hex.substr(4, 2), 16);
+		const brightness = ((c_r * 299) + (c_g * 587) + (c_b * 114)) / 1000;
+		return brightness > 155;
+	}
+
+	var bgColor = getComputedStyle(document.documentElement).getPropertyValue('--r-background-color').trim();
+	var isLight = isLight(bgColor);
+
+	if(isLight){
+		document.body.classList.add('has-light-background');
+	} else {
+		document.body.classList.add('has-dark-background');
+	}
+
+      // default options to init reveal.js
+      var defaultOptions = {
+        controls: true,
+        progress: true,
+        history: true,
+        center: true,
+        transition: 'default', // none/fade/slide/convex/concave/zoom
+        plugins: [
+          RevealMarkdown,
+          RevealHighlight,
+          RevealZoom,
+          RevealNotes,
+          RevealMath.MathJax3,
+		  RevealMermaid,
+		  RevealChart,
+		  RevealCustomControls,
+		  RevealMenu,
+		  RevealChalkboard, 
+        ],
+
+
+    	allottedTime: 120 * 1000,
+
+		mathjax3: {
+			mathjax: 'plugin/math/mathjax/tex-mml-chtml.js',
+		},
+		markdown: {
+		  gfm: true,
+		  mangle: true,
+		  pedantic: false,
+		  smartLists: false,
+		  smartypants: false,
+		},
+
+		mermaid: {
+			theme: isLight ? 'default' : 'dark',
+		},
+
+		customcontrols: {
+			controls: [
+				{id: 'toggle-overview',
+				title: 'Toggle overview (O)',
+				icon: '<i class="fa fa-th"></i>',
+				action: 'Reveal.toggleOverview();'
+				},
+				{ icon: '<i class="fa fa-pen-square"></i>',
+				title: 'Toggle chalkboard (B)',
+				action: 'RevealChalkboard.toggleChalkboard();'
+				},
+				{ icon: '<i class="fa fa-pen"></i>',
+				title: 'Toggle notes canvas (C)',
+				action: 'RevealChalkboard.toggleNotesCanvas();'
+				},
+			]
+		},
+		menu: {
+			loadIcons: false
+		}
+      };
+
+      // options from URL query string
+      var queryOptions = Reveal().getQueryHash() || {};
+
+      var options = extend(defaultOptions, {"width":960,"height":700,"margin":0.04,"controls":true,"progress":true,"slideNumber":true,"showNotes":true,"transition":"slide","transitionSpeed":"fast"}, queryOptions);
+    </script>
+
+    <script>
+      Reveal.initialize(options);
+    </script>
+  </body>
+
+  <!-- created with Advanced Slides -->
+</html>
